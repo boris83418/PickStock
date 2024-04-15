@@ -54,7 +54,7 @@
         {{ k_line_plot | safe }}
     </div>
     {% endif %}
-
+<div>
     {% if financial_data is not none %}
     <table border="1">
         <thead>
@@ -62,17 +62,20 @@
                 <th>年份</th>
                 <th>月份</th>
                 <th>單月營收</th>
+                <th>去年同期月營收</th>
+                <th>YOY(%)</th>
             </tr>
         </thead>
         <tbody>
             {% for index, row in financial_data.iterrows() %}
-                {% if row['月份'] and row['單月營收'] %}
                 <tr>
                     <td>{{ row['年份'] }}</td>
                     <td>{{ row['月份'] }}</td>
                     <td>{{ row['單月營收'] }}</td>
+                    <td>{{ row['去年同期月營收'] }}</td>
+                    <td>{{ row['YOY'] }}</td>
+ 
                 </tr>
-                {% endif %}
             {% endfor %}
         </tbody>
     </table>
@@ -80,6 +83,37 @@
     <p>沒有數據可顯示。</p>
     {% endif %}
     <br>
+
+    {% if quarterly_revenue is not none %}
+    <table border="1">
+        <thead>
+            <tr>
+                <th>年份</th>
+                <th>季</th>
+                <th>季營收</th>
+                <th>去年同季營收</th>
+                <th>YOY</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for index, row in quarterly_revenue.iterrows() %}
+                <tr>
+                    <td>{{ row['年份'] }}</td>
+                    <td>{{ row['季度'] }}</td>
+                    <td>{{ row['單月營收'] }}</td>
+                    <td>{{ row['去年同季營收'] }}</td>
+                    <td>{{ row['YOY'] }}</td>
+
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    {% endif %}
+    <br>
+</div>
+
+
     {% if profit_data is not none %}
     <table border="1">
         <thead>
