@@ -5,146 +5,214 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Analysis</title>
-    <!-- 导入 Plotly 绘图所需的 JavaScript 库 -->
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-</head>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" </head>
+    <!-- 引入 jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <body>
-    <h1>Stock Analysis</h1>
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-gray-800">選股小工具</h1>
+    </div>
 
-    <form method="POST">
-        <label for="stock_number">Enter Stock Number:</label>
-        <input type="text" id="stock_number" name="stock_number">
-        <input type="submit" value="Submit">
+
+    <form method="POST" class="w-full max-w-sm">
+        <label class="block text-gray-700 mb-2" for="stock_number">請輸入股票代號:</label>
+        <div class="flex">
+            <input class="flex-grow border rounded-l-md py-2 px-3 text-gray-700 focus:outline-none" type="text"
+                id="stock_number" name="stock_number">
+            <input class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r-md cursor-pointer"
+                id="companyname" type="submit" value="提交">
+        </div>
     </form>
 
-    {% if stock_data is not none %}
-    <!-- 顯示股票數據 -->
-    <h2>Stock Data</h2>
-    <table border="1">
-        <thead>
-            <tr>
-                <th>年份</th>
-                <th>月份</th>
-                <th>開盤價</th>
-                <th>最高價</th>
-                <th>最低價</th>
-                <th>收盤價</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for index, row in stock_data.iterrows() %}
-            <tr>
-                <td>{{ row['年份'] }}</td>
-                <td>{{ row['月份'] }}</td>
-                <td>{{ row['開盤價'] }}</td>
-                <td>{{ row['最高價'] }}</td>
-                <td>{{ row['最低價'] }}</td>
-                <td>{{ row['收盤價'] }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% endif %}
 
-    {% if k_line_plot is not none %}
+
+    <br>
+
+    <!-- 用於顯示公司簡稱的元素 -->
+    <div id="companyShortName" class="text-gray-700">公司名稱:{{ company_short_name }}</div>
+
+
+
+
+
     <!-- 顯示K線圖 -->
-    <h2>K-Line Plot</h2>
+    {% if k_line_plot is not none %}
+
+    <div class="text-center">
+        <h2 class="text-2xl font-bold text-gray-800">K-Line Plot</h2>
+    </div>
     <div id="k_line_plot">
         {{ k_line_plot | safe }}
     </div>
     {% endif %}
-<div>
-    {% if financial_data is not none %}
-    <table border="1">
-        <thead>
-            <tr>
-                <th>年份</th>
-                <th>月份</th>
-                <th>單月營收</th>
-                <th>去年同期月營收</th>
-                <th>YOY(%)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for index, row in financial_data.iterrows() %}
-                <tr>
-                    <td>{{ row['年份'] }}</td>
-                    <td>{{ row['月份'] }}</td>
-                    <td>{{ row['單月營收'] }}</td>
-                    <td>{{ row['去年同期月營收'] }}</td>
-                    <td>{{ row['YOY'] }}</td>
- 
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>沒有數據可顯示。</p>
-    {% endif %}
-    <br>
 
-    {% if quarterly_revenue is not none %}
-    <table border="1">
-        <thead>
-            <tr>
-                <th>年份</th>
-                <th>季</th>
-                <th>季營收</th>
-                <th>去年同季營收</th>
-                <th>YOY</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for index, row in quarterly_revenue.iterrows() %}
-                <tr>
-                    <td>{{ row['年份'] }}</td>
-                    <td>{{ row['季度'] }}</td>
-                    <td>{{ row['單月營收'] }}</td>
-                    <td>{{ row['去年同季營收'] }}</td>
-                    <td>{{ row['YOY'] }}</td>
+    <div class="flex">
+        {% if stock_data is not none %}
+        <!-- 股票數據表格 -->
+        <div class="w-1/2 p-4">
+            <h2 class="text-2xl font-bold text-gray-800">技術面資料</h2>
+            <table class="table-auto border-collapse border border-gray-200">
+                <!-- 表頭 -->
+                <thead>
+                    <tr>
+                        <th class="border border-gray-200 px-4 py-2">年份</th>
+                        <th class="border border-gray-200 px-4 py-2">月份</th>
+                        <th class="border border-gray-200 px-4 py-2">開盤價</th>
+                        <th class="border border-gray-200 px-4 py-2">最高價</th>
+                        <th class="border border-gray-200 px-4 py-2">最低價</th>
+                        <th class="border border-gray-200 px-4 py-2">收盤價</th>
+                        <th class="border border-gray-200 px-4 py-2">K值</th>
+                        <th class="border border-gray-200 px-4 py-2">D值</th>
+                    </tr>
+                </thead>
+                <!-- 表身 -->
+                <tbody>
+                    {% for index, row in stock_data.iterrows() %}
+                    <tr>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['年份'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['月份'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['開盤價'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['最高價'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['最低價'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['收盤價'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['K'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['D'] }}</td>
+                        
+                    </tr>
+                    {% endfor %}
+                    
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
 
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    {% endif %}
-    <br>
-</div>
+        {% if balance_sheet is not none %}
+        <!-- 資產負債表格 -->
+        <div class="w-1/2 p-4">
+            <h2 class="text-2xl font-bold text-gray-800">資產負債資料</h2>
+            <table class="table-auto border-collapse border border-gray-200">
+                <!-- 表頭 -->
+                <thead>
+                    <tr>
+                        <th class="border border-gray-200 px-4 py-2">年度</th>
+                        <th class="border border-gray-200 px-4 py-2">股本</th>
+                        <th class="border border-gray-200 px-4 py-2">BPS</th>
+                    </tr>
+                </thead>
+                <!-- 表身 -->
+                <tbody>
+                    {% for index, row in balance_sheet.iterrows() %}
+                    <tr>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['年度'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['股本'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['BPS(元)'] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
 
+    <div class="flex">
+        {% if financial_data is not none %}
+        <div class="w-1/2 p-4">
+            <h2 class="text-2xl font-bold text-gray-800">月營收</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="border border-gray-200 px-4 py-2">年份</th>
+                        <th class="border border-gray-200 px-4 py-2">月份</th>
+                        <th class="border border-gray-200 px-4 py-2">單月營收</th>
+                        <th class="border border-gray-200 px-4 py-2">去年同期月營收</th>
+                        <th class="border border-gray-200 px-4 py-2">YOY(%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for index, row in financial_data.iterrows() %}
+                    <tr>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['年份'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['月份'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['單月營收'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['去年同期月營收'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['YOY'] }}</td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>沒有數據可顯示。</p>
+            {% endif %}
+            <br>
+        </div>
+        <div class="w-1/2 p-4">
+            {% if quarterly_revenue is not none %}
+            <h2 class="text-2xl font-bold text-gray-800">季營收</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="border border-gray-200 px-4 py-2">年份</th>
+                        <th class="border border-gray-200 px-4 py-2">季</th>
+                        <th class="border border-gray-200 px-4 py-2">季營收</th>
+                        <th class="border border-gray-200 px-4 py-2">去年同季營收</th>
+                        <th class="border border-gray-200 px-4 py-2">YOY</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for index, row in quarterly_revenue.iterrows() %}
+                    <tr>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['年份'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['季度'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['單月營收'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['去年同季營收'] }}</td>
+                        <td class="border border-gray-200 px-4 py-2">{{ row['YOY'] }}</td>
+
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            {% endif %}
+            <br>
+        </div>
+    </div>
 
     {% if profit_data is not none %}
-    <table border="1">
+    <h2 class="text-2xl font-bold text-gray-800">獲利狀況</h2>
+    <table>
         <thead>
             <tr>
-                <th>年/季</th>
-                <th>營收(億)</th>
-                <th>稅後淨利(億)</th>
-                <th>毛利(%)</th>
-                <th>營業利益(%)</th>
-                <th>稅後淨利(%)</th>
-                <th>ROE(%)</th>
-                <th>EPS(元)</th>
+                <th class="border border-gray-200 px-4 py-2">年/季</th>
+                <th class="border border-gray-200 px-4 py-2">營收(億)</th>
+                <th class="border border-gray-200 px-4 py-2">稅後淨利(億)</th>
+                <th class="border border-gray-200 px-4 py-2">毛利(%)</th>
+                <th class="border border-gray-200 px-4 py-2">營業利益(%)</th>
+                <th class="border border-gray-200 px-4 py-2">稅後淨利(%)</th>
+                <th class="border border-gray-200 px-4 py-2">ROE(%)</th>
+                <th class="border border-gray-200 px-4 py-2">EPS(元)</th>
             </tr>
         </thead>
         <tbody>
             {% for index, row in profit_data.iterrows() %}
-                <tr>
-                    <td>{{ row['年季'] }}</td>
-                    <td>{{ row['營收(億)'] }}</td>
-                    <td>{{ row['稅後淨利(億)'] }}</td>
-                    <td>{{ row['毛利(%)'] }}</td>
-                    <td>{{ row['營業利益(%)'] }}</td>
-                    <td>{{ row['稅後淨利(%)'] }}</td>
-                    <td>{{ row['ROE(%)'] }}</td>
-                    <td>{{ row['EPS(元)'] }}</td>
-                </tr>
+            <tr>
+                <td class="border border-gray-200 px-4 py-2">{{ row['年季'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['營收(億)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['稅後淨利(億)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['毛利(%)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['營業利益(%)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['稅後淨利(%)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['ROE(%)'] }}</td>
+                <td class="border border-gray-200 px-4 py-2">{{ row['EPS(元)'] }}</td>
+            </tr>
             {% endfor %}
         </tbody>
     </table>
     {% else %}
     {% endif %}
+
 
 </body>
 

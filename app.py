@@ -9,6 +9,81 @@ import requests
 from bs4 import BeautifulSoup
 import numpy as np
 
+
+
+# 獲取股票區間
+def get_stock_data(stock_number):
+    stock = twstock.Stock(stock_number)
+    return stock.fetch_from(2019,10)
+
+# 股票月開盤收盤
+def process_stock_data(stock_data):
+    grouped_data = {}
+    for row in stock_data:
+        date = row[0]
+        year_month = (date.year, date.month)
+        if year_month not in grouped_data:
+            grouped_data[year_month] = {'開盤價': row[3], '最高價': row[4], '最低價': row[5], '收盤價': row[6]}
+        else:
+            grouped_data[year_month]['最高價'] = max(grouped_data[year_month]['最高價'], row[4])
+            grouped_data[year_month]['最低價'] = min(grouped_data[year_month]['最低價'], row[5])
+            grouped_data[year_month]['收盤價'] = row[6]
+    df = pd.DataFrame(grouped_data).T.reset_index()
+    df.columns = ['年份', '月份', '開盤價', '最高價', '最低價', '收盤價']
+    df['年月'] = pd.to_datetime(df['年份'].astype(str) + '-' + df['月份'].astype(str), format='%Y-%m')
+    df = df.sort_values(by='年月', ascending=False)
+    # 计算 KD 值并添加到 DataFrame 中
+    KD_values = calculate_stochastic_oscillator(df)
+   
+    df = pd.merge(df, KD_values, how='inner')
+    print(df)
+    return df
+
+#計算KD
+def calculate_stochastic_oscillator(data, n=14, m=3):
+    # 计算n日最低价和最高价
+    data['n_low'] = data['最低價'].rolling(window=n).min()
+    data['n_high'] = data['最高價'].rolling(window=n).max()
+    
+    # 计算K值
+    data['K'] = ((data['收盤價'] - data['n_low']) / (data['n_high'] - data['n_low'])) * 100
+    data['K'] =data['K'].round(2)
+    # 计算K线的m日移动平均值，即D线
+    data['D'] = data['K'].rolling(window=m).mean()
+    data['D'] =data['D'].round(2)
+    return data[['年月', 'K', 'D']].dropna()
+
+
+
+# 找股票名稱
+def get_company_short_name(stock_number):
+    url = f"https://openapi.twse.com.tw/v1/opendata/t187ap03_L"
+    response = requests.get(url)
+    print(response)
+    if response.status_code == 200:
+        data = response.json()
+        for company in data:
+            if company["公司代號"] == str(stock_number):
+                return company["公司簡稱"]
+    else:
+        print("Failed to fetch data from API")
+        return None
+
+#移動平均線
+def add_moving_averages(fig, data):
+    # 计算移动平均线
+    ma_5 = data['收盤價'].rolling(window=5).mean()
+    ma_10 = data['收盤價'].rolling(window=10).mean()
+    ma_20 = data['收盤價'].rolling(window=20).mean()
+    ma_50 = data['收盤價'].rolling(window=50).mean()
+    ma_200 = data['收盤價'].rolling(window=200).mean()
+
+    # 添加移动平均线到图表
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_5, mode='lines', name='5日移动平均线'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_10, mode='lines', name='10日移动平均线'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_20, mode='lines', name='20日移动平均线'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_50, mode='lines', name='50日移动平均线'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_200, mode='lines', name='200日移动平均线'))
 # 畫K線圖
 def generate_k_line_plot(data):
     fig = go.Figure(data=[go.Candlestick(x=data['年月'],
@@ -19,13 +94,56 @@ def generate_k_line_plot(data):
                                          increasing=dict(line=dict(color='red')),
                                          decreasing=dict(line=dict(color='green')))])
     fig.update_layout(xaxis_rangeslider_visible=False)
-    k_line_plot = fig.to_html(full_html=False)
-    return k_line_plot
+
+    # 添加移动平均线
+    add_moving_averages(fig, data)
+    
+    return fig.to_html(full_html=False)
+
+def get_balance_sheet(stock_number):
+    # 構建查詢股票營收的 URL
+    url = f"https://goodinfo.tw/tw/StockAssetsStatus.asp?STOCK_ID={stock_number}"
+    
+    # 發送 GET 請求獲取網頁內容
+    response = requests.get(url)
+    
+    # 如果請求成功
+    if response.status_code == 200:
+        # 使用 BeautifulSoup 解析 HTML 內容
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 找到包含營收數據的表格
+        table = soup.find('div', id='divDetail')
+        
+        # 創建一個空的列表來存儲有效的數據
+        data = []
+        
+        # 遍歷表格的每一行
+        for row in table.find_all('tr'):
+            # 獲取每一行的所有列
+            cols = row.find_all('td')
+            
+            # 將每一列的文本內容去除空白字符後存入列表
+            cols = [col.text.strip() for col in cols]
+            
+            if len(cols) == 22:
+                    data.append(cols)
+        
+        # 定義 DataFrame 的列名
+        columns = ["年度", "股本", "財報評分", "年度股價_去年收盤", "年度股價_今年收盤", 
+                   "年度股價_漲跌(元)", 
+                   "年度股價_漲跌(%)", "資產比例_現金","資產比例_應收帳款",
+                   "資產比例_存貨", "資產比例_流動資產", "資產比例_基金投資", "資產比例_固定資產",
+                   "資產比例_無形資產","資產比例_其他資產", "負債比例_應付帳款", "負債比例_流動負債",
+                   "負債比例_長期負債","負債比例_其他負債","負債比例_負債總額","股東權益(%)","BPS(元)"
+                   ]
+        # 將數據列表轉換為 DataFrame
+        df = pd.DataFrame(data, columns=columns)
+        print(df)
+        return df
 
 # 算出月營收
 # 算出季營收
-# 創建一個空的 DataFrame 來存儲季度營收
-
 def get_monthly_quartly_revenue(stock_number):
     # 構建查詢股票營收的 URL
     url = f"https://goodinfo.tw/tw/ShowSaleMonChart.asp?STOCK_ID={stock_number}"
@@ -71,8 +189,8 @@ def get_monthly_quartly_revenue(stock_number):
         
         df["去年同期月營收"] = df.apply(lambda x: df[(df["年份"] == str(int(x["年份"]) - 1)) & (df["月份"] == x["月份"])]["單月營收"].iloc[0] if len(df[(df["年份"] == str(int(x["年份"]) - 1)) & (df["月份"] == x["月份"])]) > 0 else None, axis=1)
         # 將字符串數據轉換為浮點數
-        df["去年同期月營收"] = df["去年同期月營收"].astype(float)
-        df["單月營收"] = df["單月營收"].astype(float)
+        df["去年同期月營收"] = df["去年同期月營收"].str.replace(",", "").astype(float)
+        df["單月營收"] = df["單月營收"].str.replace(",", "").astype(float)
         # 將錯誤值變為 0    
         df["YOY"] = np.where(pd.notnull(df["去年同期月營收"]) & pd.notnull(df["單月營收"]), ((df["單月營收"] - df["去年同期月營收"]) / df["去年同期月營收"]) * 100, 0)
         df["YOY"] = df["YOY"].round(2)
@@ -98,7 +216,6 @@ def get_monthly_quartly_revenue(stock_number):
         # 如果請求失敗，則打印錯誤信息並返回None
         print(f"Failed to fetch data from {url}. Status code: {response.status_code}")
         return None
-
 
 
 # 抓獲利情況   
@@ -143,52 +260,44 @@ def get_profit(stock_number):
         print(f"Failed to fetch data from {url}. Status code: {response.status_code}")
         return None
 
+# 回饋到前端
+def render_template_data(stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name):
+    return render_template('index.html', stock_data=stock_data, k_line_plot=k_line_plot,
+                           financial_data=financial_data, quarterly_revenue=quarterly_revenue, 
+                           profit_data=profit_data, balance_sheet=balance_sheet, company_short_name=company_short_name)
+
+
 app = Flask(__name__)
 @app.route('/', methods=['GET', 'POST'])
-
-
-
 def index():
     if request.method == 'POST':
         stock_number = request.form['stock_number']
         
-        # 獲取股票數據
-        stock = twstock.Stock(stock_number)
-        target_price = stock.fetch_from(2019, 10)
-        
-        #print(target_price)
-        # 對數據進行預處理和分組
-        grouped_data = {}
-        for row in target_price:
-            date = row[0]
-            year_month = (date.year, date.month)
-            if year_month not in grouped_data:
-                grouped_data[year_month] = {'開盤價': row[3], '最高價': row[4], '最低價': row[5], '收盤價': row[6]}
-            else:
-                grouped_data[year_month]['最高價'] = max(grouped_data[year_month]['最高價'], row[4])
-                grouped_data[year_month]['最低價'] = min(grouped_data[year_month]['最低價'], row[5])
-                grouped_data[year_month]['收盤價'] = row[6]
-        
-        # 轉換為 DataFrame，並添加年月
-        df = pd.DataFrame(grouped_data).T.reset_index()
-        df.columns = ['年份', '月份', '開盤價', '最高價', '最低價', '收盤價']
-        df['年月'] = pd.to_datetime(df['年份'].astype(str) + '-' + df['月份'].astype(str), format='%Y-%m')
-        
-        # 獲取股票月營收數據及季營收
+        # 股票代號公司簡稱
+        company_short_name = get_company_short_name(stock_number)
+        # 獲取原始股票數據
+        stock_data = get_stock_data(stock_number)
+        # 處理月開盤
+        processed_stock_data = process_stock_data(stock_data)
+
+        # K圖
+        k_line_plot = generate_k_line_plot(processed_stock_data[['年月','開盤價', '最高價', '最低價', '收盤價']])
+        # 財務
         financial_data, quarterly_revenue = get_monthly_quartly_revenue(stock_number)
-        # 獲取股票淨利
+        # 淨利
         profit_data = get_profit(stock_number)
+        # 資產負債
+        balance_sheet = get_balance_sheet(stock_number)
         
-        # 生成K線圖
-        k_line_plot = generate_k_line_plot(df[['年月','開盤價', '最高價', '最低價', '收盤價']])
-        
-        # 將股票數據及K財務都丟回前端
-        return render_template('index.html', stock_data=df, k_line_plot=k_line_plot,
-                               financial_data=financial_data, quarterly_revenue=quarterly_revenue, profit_data=profit_data)
+        return render_template_data(processed_stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name)
     
-    # 用戶未提交前都為none
-    return render_template('index.html', stock_data=None, k_line_plot=None,
-                           financial_data=None, quarterly_revenue=None,profit_data=None)
+    # 空的時候顯示
+    return render_template_data(None, None, None, None, None, None, None)
+
+
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
