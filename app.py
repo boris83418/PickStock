@@ -14,7 +14,7 @@ import numpy as np
 # 獲取股票區間
 def get_stock_data(stock_number):
     stock = twstock.Stock(stock_number)
-    return stock.fetch_from(2019,10)
+    return stock.fetch_from(2019,1)
 
 # 股票月開盤收盤
 def process_stock_data(stock_data):
@@ -28,30 +28,46 @@ def process_stock_data(stock_data):
             grouped_data[year_month]['最高價'] = max(grouped_data[year_month]['最高價'], row[4])
             grouped_data[year_month]['最低價'] = min(grouped_data[year_month]['最低價'], row[5])
             grouped_data[year_month]['收盤價'] = row[6]
+    
     df = pd.DataFrame(grouped_data).T.reset_index()
     df.columns = ['年份', '月份', '開盤價', '最高價', '最低價', '收盤價']
     df['年月'] = pd.to_datetime(df['年份'].astype(str) + '-' + df['月份'].astype(str), format='%Y-%m')
     df = df.sort_values(by='年月', ascending=False)
     # 计算 KD 值并添加到 DataFrame 中
     KD_values = calculate_stochastic_oscillator(df)
-   
     df = pd.merge(df, KD_values, how='inner')
-    print(df)
     return df
 
+#計算均價
+def avergeprice(data):
+    ma_3 = data['收盤價'].rolling(window=3).mean()
+    ma_6 = data['收盤價'].rolling(window=6).mean()
+    ma_12 = data['收盤價'].rolling(window=12).mean()
+    ma_20_plus = data['收盤價'].rolling(window=20).mean()
+    print(1)
+    ma_3_first = ma_3.iloc[2].round(2)
+    ma_6_first = ma_6.iloc[5].round(2)
+    ma_12_first = ma_12.iloc[11].round(2)
+    ma_20_plus_first = ma_20_plus.iloc[19].round(2)
+
+
+
+
+    return ma_3_first, ma_6_first, ma_12_first, ma_20_plus_first
 #計算KD
-def calculate_stochastic_oscillator(data, n=14, m=3):
-    # 计算n日最低价和最高价
-    data['n_low'] = data['最低價'].rolling(window=n).min()
-    data['n_high'] = data['最高價'].rolling(window=n).max()
-    
-    # 计算K值
+def calculate_stochastic_oscillator(data, m=3):
+    # 計算K值
+    data['n_low'] = data['最低價']
+    data['n_high'] = data['最高價']
     data['K'] = ((data['收盤價'] - data['n_low']) / (data['n_high'] - data['n_low'])) * 100
-    data['K'] =data['K'].round(2)
-    # 计算K线的m日移动平均值，即D线
-    data['D'] = data['K'].rolling(window=m).mean()
-    data['D'] =data['D'].round(2)
+    data['K'] = data['K'].round(2)
+    
+    # 計算K線的m日移動平均值，即D線
+    data['D'] = data['K'].rolling(window=m, min_periods=1).mean()
+    data['D'] = data['D'].round(2)
+    
     return data[['年月', 'K', 'D']].dropna()
+
 
 
 
@@ -79,11 +95,12 @@ def add_moving_averages(fig, data):
     ma_200 = data['收盤價'].rolling(window=200).mean()
 
     # 添加移动平均线到图表
-    fig.add_trace(go.Scatter(x=data['年月'], y=ma_5, mode='lines', name='5日移动平均线'))
-    fig.add_trace(go.Scatter(x=data['年月'], y=ma_10, mode='lines', name='10日移动平均线'))
-    fig.add_trace(go.Scatter(x=data['年月'], y=ma_20, mode='lines', name='20日移动平均线'))
-    fig.add_trace(go.Scatter(x=data['年月'], y=ma_50, mode='lines', name='50日移动平均线'))
-    fig.add_trace(go.Scatter(x=data['年月'], y=ma_200, mode='lines', name='200日移动平均线'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_5, mode='lines', name='5日移動平均線'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_10, mode='lines', name='10日移動平均線'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_20, mode='lines', name='20日移動平均線'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_50, mode='lines', name='50日移動平均線'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=ma_200, mode='lines', name='200日移動平均線'))
+# 畫K線圖
 # 畫K線圖
 def generate_k_line_plot(data):
     fig = go.Figure(data=[go.Candlestick(x=data['年月'],
@@ -93,11 +110,17 @@ def generate_k_line_plot(data):
                                          close=data['收盤價'],
                                          increasing=dict(line=dict(color='red')),
                                          decreasing=dict(line=dict(color='green')))])
-    fig.update_layout(xaxis_rangeslider_visible=False)
-
-    # 添加移动平均线
+    
+    # 添加移動平均線
     add_moving_averages(fig, data)
     
+    # 添加K值和D值到圖表
+    fig.add_trace(go.Scatter(x=data['年月'], y=data['K'], mode='lines', name='K值'))
+    fig.add_trace(go.Scatter(x=data['年月'], y=data['D'], mode='lines', name='D值'))
+
+    # 設置圖形佈局
+    fig.update_layout(xaxis_rangeslider_visible=False)
+
     return fig.to_html(full_html=False)
 
 def get_balance_sheet(stock_number):
@@ -261,11 +284,10 @@ def get_profit(stock_number):
         return None
 
 # 回饋到前端
-def render_template_data(stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name):
+def render_template_data(stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name, avgprice):
     return render_template('index.html', stock_data=stock_data, k_line_plot=k_line_plot,
                            financial_data=financial_data, quarterly_revenue=quarterly_revenue, 
-                           profit_data=profit_data, balance_sheet=balance_sheet, company_short_name=company_short_name)
-
+                           profit_data=profit_data, balance_sheet=balance_sheet, company_short_name=company_short_name, avgprice=avgprice)
 
 app = Flask(__name__)
 @app.route('/', methods=['GET', 'POST'])
@@ -279,9 +301,10 @@ def index():
         stock_data = get_stock_data(stock_number)
         # 處理月開盤
         processed_stock_data = process_stock_data(stock_data)
-
+        #均價
+        avgprice=avergeprice(processed_stock_data)
         # K圖
-        k_line_plot = generate_k_line_plot(processed_stock_data[['年月','開盤價', '最高價', '最低價', '收盤價']])
+        k_line_plot = generate_k_line_plot(processed_stock_data[['年月','開盤價', '最高價', '最低價', '收盤價',"K","D"]])
         # 財務
         financial_data, quarterly_revenue = get_monthly_quartly_revenue(stock_number)
         # 淨利
@@ -289,10 +312,10 @@ def index():
         # 資產負債
         balance_sheet = get_balance_sheet(stock_number)
         
-        return render_template_data(processed_stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name)
+        return render_template_data(processed_stock_data, k_line_plot, financial_data, quarterly_revenue, profit_data, balance_sheet, company_short_name, avgprice)
     
     # 空的時候顯示
-    return render_template_data(None, None, None, None, None, None, None)
+    return render_template_data(None, None, None, None, None, None, None,None)
 
 
 
